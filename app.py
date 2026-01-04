@@ -86,8 +86,9 @@ def generate_single_report_body(name, sid, dept, pred, steps, attend, study, eng
     body = f"""
     <div class="box page-break">
         <div class="header">
-            <img src="https://cdn-icons-png.flaticon.com/512/2231/2231649.png">
-            <h2>وزارة التعليم العالي</h2><h3>القسم: {dept}</h3>
+            <img src="https://teeng.alayen.edu.iq/public/ar/image/site/new_logo.png">
+          <h2>جامعة العين العراقية</h2>
+            <h3>الكلية التقنية الهندسية - قسم: {dept}</h3>
         </div>
         <hr>
         <table>
@@ -280,3 +281,4 @@ elif mode == "استيراد ملف" and up_file:
                 # طباعة الكل -> طباعة تلقائية
                 final_html = generate_full_html_document(all_reports_body, auto_print=True)
                 st.download_button("📥 تحميل ملف الدفعة الكامل", data=final_html, file_name="Full_Batch_Reports.html", mime="text/html")
+
