@@ -77,7 +77,7 @@ def simulate_improvement(row, model, current_score):
         if p_att > current_score: scenarios.append(f"الالتزام بالدوام سيرفع النتيجة إلى <span class='num-ltr'>{p_att:.1f}%</span>")
     return scenarios
 
-# --- HTML Generator ---
+# --- HTML Generator (جسم التقرير فقط) ---
 def generate_single_report_body(name, sid, dept, pred, steps, attend, study, eng, married):
     status = "خطر 🔴" if pred < 50 else "جيد 🟢"
     m_status = "متزوج" if married == 1 else "أعزب"
@@ -109,7 +109,11 @@ def generate_single_report_body(name, sid, dept, pred, steps, attend, study, eng
     """
     return body
 
-def generate_full_html_document(report_bodies):
+# --- المجمع النهائي (تم التعديل للتحكم بالطباعة) ---
+def generate_full_html_document(report_bodies, auto_print=False):
+    # إذا كانت auto_print صحيحة، نضيف كود الجافا سكربت. إذا خطأ، لا نضيفه.
+    print_script = "<script>window.onload = function() { window.print(); }</script>" if auto_print else ""
+    
     html = f"""
     <!DOCTYPE html><html lang="ar" dir="rtl"><head>
     <meta charset="UTF-8">
@@ -127,7 +131,7 @@ def generate_full_html_document(report_bodies):
             .page-break {{ page-break-after: always; }}
         }}
     </style>
-    <script>window.onload = function() {{ window.print(); }}</script>
+    {print_script}
     </head><body>
     <div class="report-container-wrapper">
         {report_bodies}
@@ -136,7 +140,7 @@ def generate_full_html_document(report_bodies):
     """
     return html
 
-# --- عرض التفاصيل ---
+# --- عرض التفاصيل (تم الإصلاح هنا) ---
 def show_single_student_dashboard(name, sid, dept, pred, steps, attend, study, prev, partic, eng, married):
     st.divider()
     t1, t2 = st.tabs(["📊 لوحة التحليل", "📄 معاينة التقرير"])
@@ -158,11 +162,18 @@ def show_single_student_dashboard(name, sid, dept, pred, steps, attend, study, p
         if steps:
             for s in steps: st.markdown(f'<div class="metric-card">✅ {s}</div>', unsafe_allow_html=True)
         else: st.success("ممتاز!")
+    
     with t2:
+        # جسم التقرير
         body = generate_single_report_body(name, sid, dept, pred, steps, attend, study, eng, married)
-        full_html = generate_full_html_document(body)
-        components.html(full_html, height=600, scrolling=True)
-        st.download_button("🖨️ تحميل للطباعة", data=full_html, file_name=f"Report_{sid}.html", mime="text/html", type="primary")
+        
+        # 1. للمعانية: نولد HTML بدون سكربت الطباعة
+        html_preview = generate_full_html_document(body, auto_print=False)
+        components.html(html_preview, height=600, scrolling=True)
+        
+        # 2. للتحميل: نولد HTML مع سكربت الطباعة
+        html_download = generate_full_html_document(body, auto_print=True)
+        st.download_button("🖨️ تحميل للطباعة", data=html_download, file_name=f"Report_{sid}.html", mime="text/html", type="primary")
 
 # --- القائمة الجانبية ---
 with st.sidebar:
@@ -192,7 +203,7 @@ with st.sidebar:
         sample = pd.DataFrame(columns=['Student_Name', 'Student_ID', 'Department', 'Study_Hours_Per_Week', 'Attendance_Rate', 'Previous_Average', 'Failures_History', 'Participation_Score', 'Marital_Status', 'English_Score'])
         buf = io.BytesIO(); 
         with pd.ExcelWriter(buf, engine='openpyxl') as w: sample.to_excel(w, index=False)
-        st.download_button("📥 قالب (V26)", buf.getvalue(), "template_v26.xlsx")
+        st.download_button("📥 قالب (V27)", buf.getvalue(), "template_v27.xlsx")
 
 # --- التشغيل ---
 st.title("🎓 النظام الجامعي الذكي")
@@ -233,14 +244,14 @@ elif mode == "استيراد ملف" and up_file:
             st.plotly_chart(fig_pie, use_container_width=True)
             
         st.divider()
-        st.subheader("📋 قائمة الطلاب (اختر واحداً أو أكثر للطباعة)")
+        st.subheader("📋 قائمة الطلاب")
         
         df_display = st.session_state['batch_df'][['Student_Name', 'Department', 'Prediction', 'Status']]
         event = st.dataframe(df_display, on_select="rerun", selection_mode="multi-row", use_container_width=True)
         selected_indices = event.selection.rows
         
         if len(selected_indices) == 0:
-            st.info("👆 حدد طالباً لعرض التفاصيل، أو مجموعة للطباعة.")
+            st.info("👆 اختر طالباً من الجدول.")
         elif len(selected_indices) == 1:
             idx = selected_indices[0]; full_r = st.session_state['batch_df'].iloc[idx]
             sim_row = pd.DataFrame({'Study_Hours_Per_Week': [full_r['Study_Hours_Per_Week']], 'Attendance_Rate': [full_r['Attendance_Rate']], 'Previous_Average': [full_r['Previous_Average']], 'Failures_History': [full_r['Failures_History']], 'Participation_Score': [full_r['Participation_Score']], 'Marital_Status': [full_r['Marital_Status']], 'English_Score': [full_r['English_Score']]})
@@ -248,14 +259,14 @@ elif mode == "استيراد ملف" and up_file:
             show_single_student_dashboard(full_r['Student_Name'], str(full_r['Student_ID']), full_r['Department'], full_r['Prediction'], steps, full_r['Attendance_Rate'], full_r['Study_Hours_Per_Week'], full_r['Previous_Average'], full_r['Participation_Score'], full_r['English_Score'], full_r['Marital_Status'])
         else:
             st.success(f"✅ تم تحديد {len(selected_indices)} طالباً.")
-            st.markdown("### 🖨️ طباعة التقارير المجمعة")
             all_reports_body = ""
             for idx in selected_indices:
                 full_r = st.session_state['batch_df'].iloc[idx]
                 sim_row = pd.DataFrame({'Study_Hours_Per_Week': [full_r['Study_Hours_Per_Week']], 'Attendance_Rate': [full_r['Attendance_Rate']], 'Previous_Average': [full_r['Previous_Average']], 'Failures_History': [full_r['Failures_History']], 'Participation_Score': [full_r['Participation_Score']], 'Marital_Status': [full_r['Marital_Status']], 'English_Score': [full_r['English_Score']]})
                 steps = simulate_improvement(sim_row, model, full_r['Prediction'])
                 all_reports_body += generate_single_report_body(full_r['Student_Name'], str(full_r['Student_ID']), full_r['Department'], full_r['Prediction'], steps, full_r['Attendance_Rate'], full_r['Study_Hours_Per_Week'], full_r['English_Score'], full_r['Marital_Status'])
-            final_html = generate_full_html_document(all_reports_body)
+            # هنا نستخدم auto_print=True لأن هذا زر تحميل للطباعة
+            final_html = generate_full_html_document(all_reports_body, auto_print=True)
             st.download_button(label=f"📥 تحميل وطباعة {len(selected_indices)} تقرير", data=final_html, file_name="Batch_Reports.html", mime="text/html", type="primary")
         
         st.markdown("---")
@@ -266,5 +277,6 @@ elif mode == "استيراد ملف" and up_file:
                     sim_row = pd.DataFrame({'Study_Hours_Per_Week': [full_r['Study_Hours_Per_Week']], 'Attendance_Rate': [full_r['Attendance_Rate']], 'Previous_Average': [full_r['Previous_Average']], 'Failures_History': [full_r['Failures_History']], 'Participation_Score': [full_r['Participation_Score']], 'Marital_Status': [full_r['Marital_Status']], 'English_Score': [full_r['English_Score']]})
                     steps = simulate_improvement(sim_row, model, full_r['Prediction'])
                     all_reports_body += generate_single_report_body(full_r['Student_Name'], str(full_r['Student_ID']), full_r['Department'], full_r['Prediction'], steps, full_r['Attendance_Rate'], full_r['Study_Hours_Per_Week'], full_r['English_Score'], full_r['Marital_Status'])
-                final_html = generate_full_html_document(all_reports_body)
+                # طباعة الكل -> طباعة تلقائية
+                final_html = generate_full_html_document(all_reports_body, auto_print=True)
                 st.download_button("📥 تحميل ملف الدفعة الكامل", data=final_html, file_name="Full_Batch_Reports.html", mime="text/html")
