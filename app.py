@@ -9,7 +9,7 @@ from datetime import datetime
 import io
 import streamlit.components.v1 as components
 import base64
-import os # مكتبة للتعامل مع الملفات
+import os
 
 # --- إعداد الصفحة ---
 st.set_page_config(
@@ -19,22 +19,25 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- دوال المساعدة ---
-def get_img_as_base64(file_path):
+# --- نظام الشعار الذكي (Smart Logo System) ---
+def get_logo_html(width=120):
+    # 1. محاولة جلب الملف المحلي
     try:
-        with open(file_path, "rb") as f:
+        with open("alayen.png", "rb") as f:
             data = f.read()
-        return base64.b64encode(data).decode()
+        base64_img = base64.b64encode(data).decode()
+        return f'<img src="data:image/png;base64,{base64_img}" style="width: {width}px;">'
     except:
-        return None
+        # 2. الخطة البديلة: استخدام رابط شعار الجامعة الرسمي
+        return f'<img src="https://www.alayen.edu.iq/public/assets/images/logo-footer.png" style="width: {width}px;">'
 
-logo_base64 = get_img_as_base64("alayen.png")
+# تخزين كود الشعار لاستخدامه في كل مكان
+logo_html_standard = get_logo_html(150) # للشاشة
+logo_html_small = get_logo_html(110)    # للتقرير
 
 # --- دالة الحفظ التلقائي (الاستبيان) ---
 def save_data_collection(student_name, student_id, dept, inputs_df, prediction):
     file_name = 'collected_dataset.csv'
-    
-    # تجهيز الصف للحفظ
     data_to_save = inputs_df.copy()
     data_to_save.insert(0, 'Prediction', prediction)
     data_to_save.insert(0, 'Department', dept)
@@ -42,7 +45,6 @@ def save_data_collection(student_name, student_id, dept, inputs_df, prediction):
     data_to_save.insert(0, 'Student_Name', student_name)
     data_to_save['Timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # الحفظ في ملف CSV (تراكمي)
     if not os.path.isfile(file_name):
         data_to_save.to_csv(file_name, index=False)
     else:
@@ -76,8 +78,8 @@ if 'user_type' not in st.session_state: st.session_state['user_type'] = None
 def login_screen():
     col_spacer1, col_logo, col_spacer2 = st.columns([1, 1, 1])
     with col_logo:
-        if logo_base64:
-            st.markdown(f'<div style="text-align: center;"><img src="data:image/png;base64,{logo_base64}" width="150"></div>', unsafe_allow_html=True)
+        # عرض الشعار (محلي أو أونلاين)
+        st.markdown(f'<div style="text-align: center;">{logo_html_standard}</div>', unsafe_allow_html=True)
         st.markdown("<h2 style='text-align: center; color: #0d2c56;'>بوابة النظام الأكاديمي الذكي</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: gray;'>جامعة العين العراقية - الكلية التقنية الهندسية</p>", unsafe_allow_html=True)
         st.divider()
@@ -129,12 +131,11 @@ def generate_single_report_body(name, sid, dept, pred, steps, attend, study, eng
     status = "مستوى حرج 🔴" if pred < 50 else "مستوى مطمئن 🟢"
     m_status = "متزوج" if married == 1 else "أعزب"
     rec_html = "".join([f"<li style='margin-bottom:5px;'>{s}</li>" for s in steps])
-    logo_html = f'<img src="data:image/png;base64,{logo_base64}" style="width: 110px; margin-bottom: 5px;">' if logo_base64 else ""
     
     body = f"""
     <div class="box page-break">
         <div class="header">
-            {logo_html}
+            {logo_html_small}
             <h2 style="margin:5px 0;">جامعة العين العراقية</h2>
             <h3 style="margin:0; font-weight:normal;">الكلية التقنية الهندسية - قسم {dept}</h3>
             <hr style="border-top: 2px solid #000; margin-top:15px;">
@@ -209,7 +210,9 @@ def display_student_dashboard(name, sid, dept, pred, steps, attend, study, eng, 
 # --- الواجهة الرئيسية ---
 col_h1, col_h2 = st.columns([1, 4])
 with col_h1:
-    if logo_base64: st.markdown(f'<img src="data:image/png;base64,{logo_base64}" style="width: 100%;">', unsafe_allow_html=True)
+    # عرض الشعار الذكي (محلي أو أونلاين)
+    st.markdown(f'<div style="text-align: center;">{logo_html_standard}</div>', unsafe_allow_html=True)
+
 with col_h2:
     st.title("النظام الجامعي الذكي للتنبؤ وتطوير الأداء")
     st.markdown("**جامعة العين العراقية - الكلية التقنية الهندسية**")
@@ -217,7 +220,6 @@ st.divider()
 
 with st.sidebar:
     st.header("⚙️ الإعدادات")
-    # ميزة المسؤول الجديدة: تحميل الداتا
     if st.session_state['user_type'] == 'admin':
         st.markdown("### 📥 بيانات الاستبيان")
         if os.path.isfile('collected_dataset.csv'):
@@ -250,10 +252,7 @@ if "إدخال بيانات فردي" in selected_mode:
         row = pd.DataFrame({'Study_Hours_Per_Week': [val_stu], 'Attendance_Rate': [val_att], 'Previous_Average': [val_prev], 'Failures_History': [val_fail], 'Participation_Score': [val_part], 'Marital_Status': [val_married], 'English_Score': [s_eng]})
         pred = model.predict(row)[0]
         steps = simulate_improvement(row, model, pred)
-        
-        # --- هنا يتم حفظ البيانات سراً (الاستبيان) ---
         save_data_collection(s_name, s_id, s_dept, row, pred)
-        
         st.markdown("---")
         st.subheader(f"📊 نتائج التحليل للطالب: {s_name}")
         display_student_dashboard(s_name, s_id, s_dept, pred, steps, val_att, val_stu, s_eng, val_married, val_part, val_att)
