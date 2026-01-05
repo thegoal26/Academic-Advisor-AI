@@ -8,7 +8,6 @@ import plotly.express as px
 from datetime import datetime
 import io
 import streamlit.components.v1 as components
-import base64
 import os
 
 # --- إعداد الصفحة ---
@@ -19,21 +18,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- نظام الشعار الذكي (Smart Logo System) ---
-def get_logo_html(width=120):
-    # 1. محاولة جلب الملف المحلي
-    try:
-        with open("alayen.png", "rb") as f:
-            data = f.read()
-        base64_img = base64.b64encode(data).decode()
-        return f'<img src="data:image/png;base64,{base64_img}" style="width: {width}px;">'
-    except:
-        # 2. الخطة البديلة: استخدام رابط شعار الجامعة الرسمي
-        return f'<img src="https://www.alayen.edu.iq/public/assets/images/logo-footer.png" style="width: {width}px;">'
-
-# تخزين كود الشعار لاستخدامه في كل مكان
-logo_html_standard = get_logo_html(150) # للشاشة
-logo_html_small = get_logo_html(110)    # للتقرير
+# --- رابط الشعار المباشر (من موقع الكلية) ---
+LOGO_URL = "https://teeng.alayen.edu.iq/public/ar/image/site/new_logo.png"
 
 # --- دالة الحفظ التلقائي (الاستبيان) ---
 def save_data_collection(student_name, student_id, dept, inputs_df, prediction):
@@ -78,8 +64,8 @@ if 'user_type' not in st.session_state: st.session_state['user_type'] = None
 def login_screen():
     col_spacer1, col_logo, col_spacer2 = st.columns([1, 1, 1])
     with col_logo:
-        # عرض الشعار (محلي أو أونلاين)
-        st.markdown(f'<div style="text-align: center;">{logo_html_standard}</div>', unsafe_allow_html=True)
+        # عرض الشعار مباشرة من الرابط
+        st.markdown(f'<div style="text-align: center;"><img src="{LOGO_URL}" width="150"></div>', unsafe_allow_html=True)
         st.markdown("<h2 style='text-align: center; color: #0d2c56;'>بوابة النظام الأكاديمي الذكي</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: gray;'>جامعة العين العراقية - الكلية التقنية الهندسية</p>", unsafe_allow_html=True)
         st.divider()
@@ -131,11 +117,13 @@ def generate_single_report_body(name, sid, dept, pred, steps, attend, study, eng
     status = "مستوى حرج 🔴" if pred < 50 else "مستوى مطمئن 🟢"
     m_status = "متزوج" if married == 1 else "أعزب"
     rec_html = "".join([f"<li style='margin-bottom:5px;'>{s}</li>" for s in steps])
+    # الشعار في التقرير باستخدام الرابط
+    logo_html = f'<img src="{LOGO_URL}" style="width: 110px; margin-bottom: 5px;">'
     
     body = f"""
     <div class="box page-break">
         <div class="header">
-            {logo_html_small}
+            {logo_html}
             <h2 style="margin:5px 0;">جامعة العين العراقية</h2>
             <h3 style="margin:0; font-weight:normal;">الكلية التقنية الهندسية - قسم {dept}</h3>
             <hr style="border-top: 2px solid #000; margin-top:15px;">
@@ -210,8 +198,8 @@ def display_student_dashboard(name, sid, dept, pred, steps, attend, study, eng, 
 # --- الواجهة الرئيسية ---
 col_h1, col_h2 = st.columns([1, 4])
 with col_h1:
-    # عرض الشعار الذكي (محلي أو أونلاين)
-    st.markdown(f'<div style="text-align: center;">{logo_html_standard}</div>', unsafe_allow_html=True)
+    # عرض الشعار من الرابط في أعلى الداشبورد
+    st.markdown(f'<div style="text-align: center;"><img src="{LOGO_URL}" style="width: 100%;"></div>', unsafe_allow_html=True)
 
 with col_h2:
     st.title("النظام الجامعي الذكي للتنبؤ وتطوير الأداء")
